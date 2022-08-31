@@ -1,0 +1,6 @@
+# Default ignored files
+ansible-role-funkwhale.iml
+misc.xml
+modules.xml
+vcs.xml
+workspace.xml
