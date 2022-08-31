@@ -4,13 +4,19 @@
     that:
       - funkwhale_domain is defined
 
-- name: install packages
-  apt:
+- name: install pre packages
+  package:
     name: "{{ item }}"
     state: present
     update_cache: yes
   loop:
     - git
+    - unzip
+    - curl
+    - python3-pip
+
+- name: install packages
+  include_tasks: "install_{{ ansible_distribution }}.yml"
 
 - name: check out master branch
   git:
@@ -25,27 +31,18 @@
     home: /srv/funkwhale
     #    create_home: true
 
-- name: install packages
-  apt:
-    name: "{{ item }}"
-    state: present
-    update_cache: yes
-  loop:
-    - curl
-    - python3-pip
-    - python3-venv
-    - git
-    - unzip
-    - libldap2-dev
-    - libsasl2-dev
-    - build-essential
-    - ffmpeg
-    - libjpeg-dev
-    - libmagic-dev
-    - libpq-dev
-    - postgresql-client
-    - python3-dev
+# pgsql prepare
+#sed data/pg_hba.conf
+#su - postgres-initdb
+#start postgres
+#create database funkwhale_database;
+#create role funkwhale;
+#alter role funkwhale LOGIN;
+#GRANT ALL PRIVILEGES ON DATABASE funkwhale_database TO funkwhale;
+#alter role funkwhale SUPERUSER;
 
+#- debug:
+#    var: ansible_facts['distribution']
 
 - name: Install wheel to virtualenv
   pip:
@@ -58,6 +55,7 @@
     name: pip
     virtualenv: /srv/funkwhale/virtualenv
     virtualenv_command: /usr/bin/python3 -m venv
+    extra_args: --upgrade pip
 
 - name: Install requirements
   pip:
@@ -65,19 +63,16 @@
     virtualenv: /srv/funkwhale/virtualenv
     virtualenv_command: /usr/bin/python3 -m venv
 
-
 # TODO postgres and redis must be on the same host
 - name: Configure beat systemd service
   template:
     src: funkwhale-beat.service.j2
     dest: "/etc/systemd/system/funkwhale-beat.service"
 
-
 - name: Configure server systemd service
   template:
     src: funkwhale-server.service.j2
     dest: "/etc/systemd/system/funkwhale-server.service"
-
 
 - name: Configure worker systemd service
   template:

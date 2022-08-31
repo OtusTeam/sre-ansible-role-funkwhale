@@ -2,12 +2,12 @@ dependency:
   name: galaxy
 driver:
   name: docker
-lint:
+lint: |
   name: yamllint
   options:
     config-file: molecule/default/yamllint.yml
 platforms:
-  - name: ansible-role-funkwhale-test
+  - name: ansible-role-funkwhale-test 
     image: "geerlingguy/docker-debian9-ansible"
     command: ${MOLECULE_COMMAND:-""}
     volumes:

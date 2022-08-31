@@ -1,5 +1,5 @@
 galaxy_info:
-  role_name: ansible-role-funkwhale
+  role_name: funkwhale
   author: kevit
   description: This role install FunkWhale
   company: Acme, Inc.

@@ -1,0 +1,46 @@
+---
+- name: install repos epel, rpmfusion
+  yum:
+    name: [https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm,https://download1.rpmfusion.org/free/el/rpmfusion-free-release-7.noarch.rpm]
+    state: present
+    update_cache: yes
+
+- name: install the 'Development tools'
+  yum:
+    name: ["@Development tools",cmake,gtk2-devel,pkgconfig]
+    state: present
+    update_cache: yes
+
+- name: install ENV.INFRA for Funkwhale
+  package:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - postgresql-server
+    - postgresql-devel
+    - postgresql-contrib
+    - redis
+    - nginx
+# enable && start
+
+- name: amazon-linux-extras add repo postgresql10
+  shell: amazon-linux-extras install -y postgresql10
+  args:
+    executable: /bin/bash
+
+- name: install dependeies packages for Funkwhale
+  package:
+    name: "{{ item }}"
+    state: present
+  loop:
+#    - python3-virtualenv
+#    - python-virtualenv
+#    - python-devel
+    - python3-devel
+    - openldap-devel
+    - https://rpmfind.net/linux/centos/7.9.2009/os/x86_64/Packages/libva-1.8.3-1.el7.x86_64.rpm
+    - ffmpeg
+    - ffmpeg-devel
+    - libjpeg-turbo-devel
+    - file-devel
+    - libpqxx-devel
