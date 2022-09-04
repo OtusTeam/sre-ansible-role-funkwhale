@@ -95,8 +95,3 @@
     virtualenv: "/srv/funkwhale/virtualenv"
   tags: molecule-notest
 
-- name: Configure nginx
-  template:
-    src: funkwhale.conf.j2
-    dest: "/etc/nginx/sites-enabled/funkwhale.conf"
-  tags: molecule-notest

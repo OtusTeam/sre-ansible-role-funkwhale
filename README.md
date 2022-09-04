@@ -7,9 +7,13 @@ A brief description of the role goes here.
 
 Requirements
 ------------
-Recommend use molecule ver. 3+ (syntax of files)
+Recommend by ansible host to use:
+- Molecule ver. 3+ (syntax of files)
+- Ansible-galaxy collection:
+  - community.docker
 
-Any pre-requisites that may not be covered by Ansible itself or the role should be mentioned here. For instance, if the role uses the EC2 module, it may be a good idea to mention in this section that the boto package is required.
+Recommend by ansible aims by OS to use:
+- Python ver. 3.7+ (python modules)
 
 Role Variables
 --------------
@@ -27,9 +31,11 @@ A list of other roles hosted on Galaxy should go here, plus any details in regar
 Example Playbook
 ----------------
 
-    - hosts: all
+    - hosts: all 
+      gather_facts: true
+      become: yes
       roles:
-         - kevit.ansible-role-funkwhale
+      - { role: ansible-role-funkwhale }
 
 License
 -------

@@ -1,6 +1,6 @@
 ---
 
-- name: install dependeies packages for Funkwhale
+- name: "Install dependeies packages for Funkwhale"
   package:
     name: "{{ item }}"
     state: present
@@ -16,6 +16,7 @@
     - python3-dev
     - python3-venv
     - python3-psycopg2
+    - gpg
 
 - name: Install pgdg package signing key (Debian/pgdg)
   apt_key:
@@ -79,7 +80,7 @@
     - "127.0.0.1/32"
     - "::1/128"
 
-- name: Grant user funkwhale
+- name: Grant user postgres
   postgresql_pg_hba:
     dest: /etc/postgresql/10/main/pg_hba.conf
     contype: local
@@ -134,3 +135,9 @@
   loop:
     - funkwhale
     - funkwhale_database
+
+- name: Configure nginx
+  template:
+    src: funkwhale.conf.j2
+    dest: "/etc/nginx/sites-enabled/funkwhale.conf"
+  tags: molecule-notest

@@ -7,8 +7,9 @@ lint: |
   options:
     config-file: molecule/default/yamllint.yml
 platforms:
-  - name: ansible-role-funkwhale-test 
-    image: "geerlingguy/docker-debian9-ansible"
+  - name: ansible-role-funkwhale-test
+    #image: geerlingguy/docker-debian10-ansible
+    image: geerlingguy/docker-amazonlinux2-ansible
     command: ${MOLECULE_COMMAND:-""}
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro

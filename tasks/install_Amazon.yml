@@ -1,21 +1,21 @@
 ---
-- name: install repos epel, rpmfusion
+- name: "Install repos epel, rpmfusion"
   yum:
     name: [https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm,https://download1.rpmfusion.org/free/el/rpmfusion-free-release-7.noarch.rpm]
     state: present
 #    update_cache: yes
 
-- name: install the 'Development tools'
+- name: "Install the 'Development tools'"
   yum:
     name: ["@Development tools",cmake,gtk2-devel,pkgconfig]
     state: present
 
-- name: amazon-linux-extras add repo postgresql10
+- name: "amazon-linux-extras add repo postgresql10"
   shell: amazon-linux-extras install -y postgresql10
   args:
     executable: /bin/bash
 
-- name: install ENV.INFRA for Funkwhale
+- name: "Install ENV.INFRA for Funkwhale"
   package:
     name: "{{ item }}"
     state: present
@@ -27,7 +27,7 @@
     - redis
     - nginx
 
-- name: install dependeies packages for Funkwhale
+- name: "Install dependeies packages for Funkwhale"
   package:
     name: "{{ item }}"
     state: present
@@ -43,26 +43,33 @@
     - libjpeg-turbo-devel
     - file-devel
     - libpqxx-devel
+    #- python-psycopg2
+    #- python3-psycopg2
 
+- name: "Install pip: psycopg2"
+  ansible.builtin.pip:
+    name: psycopg2
+    executable: pip3
 
 ### config.yml
-- name: Find out if PostgreSQL is initialized
+- name: "Find out if PostgreSQL is initialized"
   ansible.builtin.stat:
-    path: "/var/lib/postgresql/10/main/PG_VERSION"
+    path: "/var/lib/pgsql/data/PG_VERSION"
   register: postgres_data
 
-- name: Initialize PostgreSQL
+- name: "Initialize PostgreSQL"
   shell: "postgresql-setup initdb"
   when: not postgres_data.stat.exists
 
-- name: Start and enable services
-  service: "name={{ item }} state=started enabled=yes"
-  loop:
-    - postgresql
+- name: "Restart SystemD unit postgresql10"
+  ansible.builtin.systemd:
+    state: started
+    name: postgresql
+    enabled: yes
 
-- name: Revoke access from local user mary on database mydb.
+- name: "Revoke access from local user postgres on database all"
   community.postgresql.postgresql_pg_hba:
-    dest: /etc/postgresql/10/main/pg_hba.conf
+    dest: /var/lib/pgsql/data/pg_hba.conf
     contype: local
     users: postgres
     databases: all
@@ -71,7 +78,7 @@
 
 - name: Revoke access from local user mary on database mydb.
   community.postgresql.postgresql_pg_hba:
-    dest: /etc/postgresql/10/main/pg_hba.conf
+    dest: /var/lib/pgsql/data/pg_hba.conf
     contype: host
     users: all
     databases: all
@@ -82,35 +89,35 @@
     - "127.0.0.1/32"
     - "::1/128"
 
-- name: Grant user funkwhale
+- name: "Grant user postgres"
   postgresql_pg_hba:
-    dest: /etc/postgresql/10/main/pg_hba.conf
+    dest: /var/lib/pgsql/data/pg_hba.conf
     contype: local
     users: postgres
     databases: all
     method: trust
     create: true
 
-- name: Grant user funkwhale
+- name: "Grant user funkwhale"
   postgresql_pg_hba:
-    dest: /etc/postgresql/10/main/pg_hba.conf
+    dest: /var/lib/pgsql/data/pg_hba.conf
     contype: host
     users: all
     source: "{{ item }}"
     databases: all
     method: trust
     create: true
-    loop:
+  loop:
       - "127.0.0.1/32"
       - "::1/128"
 
-- name: Restart SystemD unit postgresql10
+- name: "Restart SystemD unit postgresql10"
   ansible.builtin.systemd:
     state: restarted
-    name: postgresql@10-main
+    name: postgresql
     enabled: yes
 
-- name: "Create app database"
+- name: "Create database for app.funkwhale"
   postgresql_db:
     name: "{{ item }}"
     state: present
@@ -137,3 +144,9 @@
   loop:
     - funkwhale
     - funkwhale_database
+
+- name: "Configure front reverse-proxy.nginx"
+  template:
+    src: funkwhale.conf.j2
+    dest: "/etc/nginx/conf.d/funkwhale.conf"
+  tags: molecule-notest
