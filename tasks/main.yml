@@ -13,6 +13,7 @@
     - git
     - unzip
     - curl
+    - python3
     - python3-pip
 
 - name: install packages
@@ -29,20 +30,6 @@
     name: funkwhale
     shell: /usr/bin/nologin
     home: /srv/funkwhale
-    #    create_home: true
-
-# pgsql prepare
-#sed data/pg_hba.conf
-#su - postgres-initdb
-#start postgres
-#create database funkwhale_database;
-#create role funkwhale;
-#alter role funkwhale LOGIN;
-#GRANT ALL PRIVILEGES ON DATABASE funkwhale_database TO funkwhale;
-#alter role funkwhale SUPERUSER;
-
-#- debug:
-#    var: ansible_facts['distribution']
 
 - name: Install wheel to virtualenv
   pip:

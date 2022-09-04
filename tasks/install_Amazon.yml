@@ -3,30 +3,29 @@
   yum:
     name: [https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm,https://download1.rpmfusion.org/free/el/rpmfusion-free-release-7.noarch.rpm]
     state: present
-    update_cache: yes
+#    update_cache: yes
 
 - name: install the 'Development tools'
   yum:
     name: ["@Development tools",cmake,gtk2-devel,pkgconfig]
     state: present
-    update_cache: yes
+
+- name: amazon-linux-extras add repo postgresql10
+  shell: amazon-linux-extras install -y postgresql10
+  args:
+    executable: /bin/bash
 
 - name: install ENV.INFRA for Funkwhale
   package:
     name: "{{ item }}"
     state: present
+    update_cache: yes
   loop:
     - postgresql-server
     - postgresql-devel
     - postgresql-contrib
     - redis
     - nginx
-# enable && start
-
-- name: amazon-linux-extras add repo postgresql10
-  shell: amazon-linux-extras install -y postgresql10
-  args:
-    executable: /bin/bash
 
 - name: install dependeies packages for Funkwhale
   package:
@@ -44,3 +43,97 @@
     - libjpeg-turbo-devel
     - file-devel
     - libpqxx-devel
+
+
+### config.yml
+- name: Find out if PostgreSQL is initialized
+  ansible.builtin.stat:
+    path: "/var/lib/postgresql/10/main/PG_VERSION"
+  register: postgres_data
+
+- name: Initialize PostgreSQL
+  shell: "postgresql-setup initdb"
+  when: not postgres_data.stat.exists
+
+- name: Start and enable services
+  service: "name={{ item }} state=started enabled=yes"
+  loop:
+    - postgresql
+
+- name: Revoke access from local user mary on database mydb.
+  community.postgresql.postgresql_pg_hba:
+    dest: /etc/postgresql/10/main/pg_hba.conf
+    contype: local
+    users: postgres
+    databases: all
+    method: peer
+    state: absent
+
+- name: Revoke access from local user mary on database mydb.
+  community.postgresql.postgresql_pg_hba:
+    dest: /etc/postgresql/10/main/pg_hba.conf
+    contype: host
+    users: all
+    databases: all
+    address: "{{ item }}"
+    method: md5
+    state: absent
+  loop:
+    - "127.0.0.1/32"
+    - "::1/128"
+
+- name: Grant user funkwhale
+  postgresql_pg_hba:
+    dest: /etc/postgresql/10/main/pg_hba.conf
+    contype: local
+    users: postgres
+    databases: all
+    method: trust
+    create: true
+
+- name: Grant user funkwhale
+  postgresql_pg_hba:
+    dest: /etc/postgresql/10/main/pg_hba.conf
+    contype: host
+    users: all
+    source: "{{ item }}"
+    databases: all
+    method: trust
+    create: true
+    loop:
+      - "127.0.0.1/32"
+      - "::1/128"
+
+- name: Restart SystemD unit postgresql10
+  ansible.builtin.systemd:
+    state: restarted
+    name: postgresql@10-main
+    enabled: yes
+
+- name: "Create app database"
+  postgresql_db:
+    name: "{{ item }}"
+    state: present
+    encoding: UTF-8
+    template: template0
+  loop:
+    - funkwhale
+    - funkwhale_database
+
+- name: "Create db user"
+  postgresql_user:
+    state: present
+    name: funkwhale
+    password: ""
+    role_attr_flags: SUPERUSER
+
+- name: "Grant db user access to app db"
+  postgresql_privs:
+    type: database
+    database: "{{ item }}"
+    roles: funkwhale
+    grant_option: yes
+    privs: all
+  loop:
+    - funkwhale
+    - funkwhale_database

@@ -4,12 +4,19 @@ galaxy_info:
   description: This role install FunkWhale
   company: Acme, Inc.
   license: MIT
-  min_ansible_version: 2.7
+  min_ansible_version: 3
 
   platforms:
-    - name: EL
+    - name: Centos
       versions:
-        - 7
+        - 8
+    - name: Amazon
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - 9
+        - 10
 
   galaxy_tags:
     - system
