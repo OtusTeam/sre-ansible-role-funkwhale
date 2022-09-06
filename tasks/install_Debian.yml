@@ -18,7 +18,7 @@
     - python3-psycopg2
     - gpg
 
-- name: Install pgdg package signing key (Debian/pgdg)
+- name: "Install pgdg package signing key (Debian/pgdg)"
   apt_key:
     url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
     id: ACCC4CF8
@@ -27,26 +27,26 @@
   retries: 5
   delay: 5
 
-- name: Install pgdg repository (Debian/pgdg)
+- name: "Install pgdg repository (Debian/pgdg)"
   apt_repository:
-    repo: "deb http://apt.postgresql.org/pub/repos/apt/ {{ ansible_distribution_release }}-pgdg main"
+    repo: "deb {{ FUNKWHALE_DB_REPO }}/ {{ ansible_distribution_release }}-pgdg main"
+    state: present
     update_cache: true
 
-- name: prepare of ENV.INFRA for Funkwhale
+- name: "Prepare of ENV.INFRA for Funkwhale"
   package:
     name: "{{ item }}"
     state: present
   loop:
-    - postgresql-10
-#??    - postgresql-contrib
-    - postgresql-client-10
+    - "postgresql-{{ FUNKWHALE_DB_VER }}"
+    - "postgresql-client-{{ FUNKWHALE_DB_VER }}"
     - redis-server
     - nginx
 
 ### config.yml
 - name: "Find out if PostgreSQL is initialized"
   ansible.builtin.stat:
-    path: "/var/lib/postgresql/10/main/PG_VERSION"
+    path: "/var/lib/postgresql/{{ FUNKWHALE_DB_VER }}/main/PG_VERSION"
   register: postgres_data
 
 - name: "Initialize PostgreSQL"
@@ -54,22 +54,22 @@
   when: not postgres_data.stat.exists
 
 - name: "Start and enable services"
-  service: "name={{ item }} state=started enabled=yes"
+  service: "name={{ item }} state=started enabled=true"
   loop:
     - postgresql
 
-- name: Revoke access from local user mary on database mydb.
+- name: "Revoke access from local user postgres on database all"
   community.postgresql.postgresql_pg_hba:
-    dest: /etc/postgresql/10/main/pg_hba.conf
+    dest: "/etc/postgresql/{{ FUNKWHALE_DB_VER }}/main/pg_hba.conf"
     contype: local
     users: postgres
     databases: all
     method: peer
     state: absent
 
-- name: Revoke access from local user mary on database mydb.
+- name: "Revoke access from local user all on database all"
   community.postgresql.postgresql_pg_hba:
-    dest: /etc/postgresql/10/main/pg_hba.conf
+    dest: "/etc/postgresql/{{ FUNKWHALE_DB_VER }}/main/pg_hba.conf"
     contype: host
     users: all
     databases: all
@@ -80,18 +80,18 @@
     - "127.0.0.1/32"
     - "::1/128"
 
-- name: Grant user postgres
+- name: "Create access from local user postgres on database all"
   postgresql_pg_hba:
-    dest: /etc/postgresql/10/main/pg_hba.conf
+    dest: "/etc/postgresql/{{ FUNKWHALE_DB_VER }}/main/pg_hba.conf"
     contype: local
     users: postgres
     databases: all
     method: trust
     create: true
 
-- name: Grant user funkwhale
+- name: "Revoke access from local user funkwhale on database all"
   postgresql_pg_hba:
-    dest: /etc/postgresql/10/main/pg_hba.conf
+    dest: "/etc/postgresql/{{ FUNKWHALE_DB_VER }}/main/pg_hba.conf"
     contype: host
     users: all
     source: "{{ item }}"
@@ -102,42 +102,42 @@
     - "127.0.0.1/32"
     - "::1/128"
 
-- name: Restart SystemD unit postgresql10
+- name: "Restart SystemD unit postgresql{{ FUNKWHALE_DB_VER }}"
   ansible.builtin.systemd:
     state: restarted
-    name: postgresql@10-main
-    enabled: yes
+    name: "postgresql@{{ FUNKWHALE_DB_VER }}-main"
+    enabled: true
 
-- name: "Create app database"
+- name: "Create database for app.funkwhale"
   postgresql_db:
     name: "{{ item }}"
     state: present
     encoding: UTF-8
     template: template0
   loop:
-    - funkwhale
-    - funkwhale_database
+    - "{{ funkwhale_db_user }}"
+    - "{{ funkwhale_db }}"
 
-- name: "Create db user"
+- name: "Create {{ funkwhale_db_user }} user"
   postgresql_user:
     state: present
-    name: funkwhale
+    name: "{{ funkwhale_db_user }}"
     password: ""
     role_attr_flags: SUPERUSER
 
-- name: "Grant db user access to app db"
+- name: "Grant db {{ funkwhale_db_user }} access to {{ funkwhale_db }}"
   postgresql_privs:
     type: database
     database: "{{ item }}"
-    roles: funkwhale
-    grant_option: yes 
+    roles: "{{ funkwhale_db_user }}"
+    grant_option: true
     privs: all
   loop:
-    - funkwhale
-    - funkwhale_database
+    - "{{ funkwhale_db_user }}"
+    - "{{ funkwhale_db }}"
 
-- name: Configure nginx
+- name: "Configure front reverse-proxy.nginx"
   template:
     src: funkwhale.conf.j2
-    dest: "/etc/nginx/sites-enabled/funkwhale.conf"
+    dest: "{{ FUNKWHALE_NGINX_SERVER_CONF }}funkwhale.conf"
   tags: molecule-notest

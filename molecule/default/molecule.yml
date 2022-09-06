@@ -1,22 +1,38 @@
+---
+# Test role ansible-role-funkwhale on OS: Debian 10, Amazon Linux 2
 dependency:
   name: galaxy
 driver:
   name: docker
 lint: |
-  name: yamllint
-  options:
-    config-file: molecule/default/yamllint.yml
+  set -e
+  yamllint .
+  ansible-lint
 platforms:
-  - name: ansible-role-funkwhale-test
-    #image: geerlingguy/docker-debian10-ansible
-    image: geerlingguy/docker-amazonlinux2-ansible
+#  - name: ansible-role-funkwhale-test-amazon2
+#    image: geerlingguy/docker-amazonlinux2-ansible
+#    command: ${MOLECULE_COMMAND:-""}
+#    volumes:
+#      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+#    privileged: true
+#    pre_build_image: true
+#    parallelize_platforms: true
+  - name: ansible-role-funkwhale-test-debian10
+    image: geerlingguy/docker-debian10-ansible
     command: ${MOLECULE_COMMAND:-""}
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
-    privileged: True
-    pre_build_image: True
+    privileged: true
+    pre_build_image: true
+    parallelize_platforms: true
 provisioner:
   name: ansible
+  log: true
+  options:
+    vvv: true
+  config_options:
+    defaults:
+      fact_caching: jsonfile
   lint:
     name: ansible-lint
     options:

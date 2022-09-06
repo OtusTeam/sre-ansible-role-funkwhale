@@ -1,14 +1,15 @@
 ---
-- name: validate configuration
+- name: "Validate configuration"
   assert:
     that:
       - funkwhale_domain is defined
+      - FUNKWHALE_DB_VER
 
-- name: install pre packages
+- name: "Install pre packages"
   package:
     name: "{{ item }}"
     state: present
-    update_cache: yes
+    update_cache: true
   loop:
     - git
     - unzip
@@ -16,70 +17,74 @@
     - python3
     - python3-pip
 
-- name: install packages
-  include_tasks: "install_{{ ansible_distribution }}.yml"
+- name: "Set OS distribution dependent variables"
+  include_vars: "{{ ansible_facts['distribution'] }}.yml"
+- debug:
+    var: FUNKWHALE_NGINX_SERVER_CONF
 
-- name: check out master branch
+- name: "Install packages"
+  include_tasks: "install_{{ ansible_facts['distribution'] }}.yml"
+
+- name: "Check out master branch"
   git:
     repo: 'https://dev.funkwhale.audio/funkwhale/funkwhale'
     dest: /srv/funkwhale
     version: master
 
-- name: Add the user
+- name: "Add the user"
   user:
     name: funkwhale
     shell: /usr/bin/nologin
     home: /srv/funkwhale
 
-- name: Install wheel to virtualenv
+- name: "Install wheel to virtualenv"
   pip:
     name: wheel
     virtualenv: /srv/funkwhale/virtualenv
     virtualenv_command: /usr/bin/python3 -m venv
 
-- name: Upgrade pip to the last version
+- name: "Upgrade pip to the last version"
   pip:
     name: pip
     virtualenv: /srv/funkwhale/virtualenv
     virtualenv_command: /usr/bin/python3 -m venv
     extra_args: --upgrade pip
 
-- name: Install requirements
+- name: "Install requirements"
   pip:
     requirements: /srv/funkwhale/api/requirements.txt
     virtualenv: /srv/funkwhale/virtualenv
     virtualenv_command: /usr/bin/python3 -m venv
 
 # TODO postgres and redis must be on the same host
-- name: Configure beat systemd service
+- name: "Configure beat systemd service"
   template:
     src: funkwhale-beat.service.j2
     dest: "/etc/systemd/system/funkwhale-beat.service"
 
-- name: Configure server systemd service
+- name: "Configure server systemd service"
   template:
     src: funkwhale-server.service.j2
     dest: "/etc/systemd/system/funkwhale-server.service"
 
-- name: Configure worker systemd service
+- name: "Configure worker systemd service"
   template:
     src: funkwhale-worker.service.j2
     dest: "/etc/systemd/system/funkwhale-worker.service"
 
-
-- name: Configure systemd target
+- name: "Configure systemd target"
   template:
     src: funkwhale.target.j2
     dest: "/etc/systemd/system/funkwhale.target"
 
-- name: Create config directory
+- name: "Create config directory"
   file:
     path: /srv/funkwhale/config
     owner: funkwhale
     group: root
     state: directory
 
-- name: Configure service
+- name: "Configure service"
   template:
     src: env.j2
     dest: "/srv/funkwhale/config/.env"
@@ -87,11 +92,29 @@
     group: root
     mode: 0600
 
-- name: Run an initial migration
+- name: "Run an initial migration"
   django_manage:
     command: migrate
     app_path: "/srv/funkwhale/api"
     pythonpath: "/usr/bin/python3"
     virtualenv: "/srv/funkwhale/virtualenv"
   tags: molecule-notest
+  notify:
+    - nginx systemd
 
+- name: nginx systemd
+  systemd:
+    name: nginx
+    enabled: true
+    state: started
+
+- name: check for proper response
+  uri:
+    url: http://localhost/
+    return_content: true
+    method: GET
+    status_code: 200
+  register: result
+  until: '"Welcome to" in result.content'
+  retries: 3
+  delay: 1
