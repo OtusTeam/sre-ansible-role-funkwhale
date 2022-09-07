@@ -2,12 +2,13 @@
 # Test role ansible-role-funkwhale on OS: Debian 10, Amazon Linux 2
 dependency:
   name: galaxy
+  options:
+    ignore-certs: true
+    ignore-errors: false
 driver:
   name: docker
 lint: |
-  set -e
-  yamllint .
-  ansible-lint
+  yamllint -c molecule/default/yamllint.yml -f colored .
 platforms:
   - name: ansible-role-funkwhale-test-amazon2
     image: geerlingguy/docker-amazonlinux2-ansible
@@ -28,11 +29,6 @@ platforms:
 provisioner:
   name: ansible
   log: true
-  options:
-    vvv: true
-  config_options:
-    defaults:
-      fact_caching: jsonfile
   lint:
     name: ansible-lint
     options:
