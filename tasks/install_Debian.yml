@@ -34,13 +34,12 @@
 
 - name: "Prepare of ENV.INFRA for Funkwhale"
   package:
-    name: "{{ item }}"
+    name:
+      - "postgresql-{{ FUNKWHALE_DB_VER }}"
+      - "postgresql-client-{{ FUNKWHALE_DB_VER }}"
+      - redis-server
+      - nginx
     state: present
-  loop:
-    - "postgresql-{{ FUNKWHALE_DB_VER }}"
-    - "postgresql-client-{{ FUNKWHALE_DB_VER }}"
-    - redis-server
-    - nginx
 
 - name: "Find out if PostgreSQL is initialized"
   ansible.builtin.stat:
@@ -51,11 +50,13 @@
   shell: "postgresql-setup initdb"
   when: not postgres_data.stat.exists
 
-- name: "Start and enable postgresql.service"
+- name: "Start SystemD unit postgresql {{ FUNKWHALE_DB_VER }}"
   ansible.builtin.systemd:
     name: postgresql
     state: started
     enabled: true
+  register: postgres_started
+  when: postgres_data.stat.exists
 
 - name: "Revoke access from local user postgres on database all"
   community.postgresql.postgresql_pg_hba:
@@ -65,7 +66,8 @@
     databases: all
     method: peer
     state: absent
-  tags: molecule-idempotence-notest
+  register: postgres_hba01
+  when: postgres_data.stat.exists
 
 - name: "Revoke access from local user all on database all"
   community.postgresql.postgresql_pg_hba:
@@ -79,7 +81,8 @@
   loop:
     - "127.0.0.1/32"
     - "::1/128"
-  tags: molecule-idempotence-notest
+  register: postgres_hba02
+  when: postgres_data.stat.exists
 
 - name: "Create access from local user postgres on database all"
   community.postgresql.postgresql_pg_hba:
@@ -89,9 +92,10 @@
     databases: all
     method: trust
     create: true
-  tags: molecule-idempotence-notest
+  register: postgres_hba03
+  when: postgres_data.stat.exists
 
-- name: "Revoke access from local user funkwhale on database all"
+- name: "Create access from host user funkwhale on database all"
   community.postgresql.postgresql_pg_hba:
     dest: "/etc/postgresql/{{ FUNKWHALE_DB_VER }}/main/pg_hba.conf"
     contype: host
@@ -103,13 +107,16 @@
   loop:
     - "127.0.0.1/32"
     - "::1/128"
-  tags: molecule-idempotence-notest
+  register: postgres_hba04
+  when: postgres_data.stat.exists
 
 - name: "Restart SystemD unit postgresql{{ FUNKWHALE_DB_VER }}"
   ansible.builtin.systemd:
     name: "postgresql@{{ FUNKWHALE_DB_VER }}-main"
     state: restarted
     enabled: true
+  register: postgres_restart
+  when: postgres_hba01 and postgres_hba02 and postgres_hba03 and postgres_hba04
 
 - name: "Create database for app.funkwhale"
   community.postgresql.postgresql_db:
@@ -120,7 +127,7 @@
   loop:
     - "{{ funkwhale_db_user }}"
     - "{{ funkwhale_db }}"
-  tags: molecule-idempotence-notest
+  when: postgres_restart.changed
 
 - name: "Create {{ funkwhale_db_user }} user"
   community.postgresql.postgresql_user:
@@ -128,6 +135,7 @@
     name: "{{ funkwhale_db_user }}"
     password: ""
     role_attr_flags: SUPERUSER
+  when: postgres_restart.changed
 
 - name: "Grant db {{ funkwhale_db_user }} access to {{ funkwhale_db }}"
   community.postgresql.postgresql_privs:
@@ -139,6 +147,7 @@
   loop:
     - "{{ funkwhale_db_user }}"
     - "{{ funkwhale_db }}"
+  when: postgres_restart.changed
 
 - name: "Configure front reverse-proxy.nginx"
   template:

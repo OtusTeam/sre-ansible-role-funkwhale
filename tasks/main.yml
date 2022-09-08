@@ -18,8 +18,6 @@
 
 - name: "Set OS distribution dependent variables"
   include_vars: "{{ ansible_facts['distribution'] }}.yml"
-- debug:
-    var: FUNKWHALE_NGINX_SERVER_CONF
 
 - name: "Install packages"
   include_tasks: "install_{{ ansible_facts['distribution'] }}.yml"
@@ -29,6 +27,7 @@
     repo: 'https://dev.funkwhale.audio/funkwhale/funkwhale'
     dest: /srv/funkwhale
     version: master
+  register: cloning_funkwhale
 
 - name: "Add the user"
   user:
@@ -41,6 +40,7 @@
     name: wheel
     virtualenv: /srv/funkwhale/virtualenv
     virtualenv_command: /usr/bin/python3 -m venv
+  when: cloning_funkwhale.changed
 
 - name: "Upgrade pip to the last version"
   pip:
@@ -48,12 +48,16 @@
     virtualenv: /srv/funkwhale/virtualenv
     virtualenv_command: /usr/bin/python3 -m venv
     extra_args: --upgrade pip
+  register: venv_upgrade
+  when: cloning_funkwhale.changed
 
 - name: "Install requirements"
   pip:
     requirements: /srv/funkwhale/api/requirements.txt
     virtualenv: /srv/funkwhale/virtualenv
     virtualenv_command: /usr/bin/python3 -m venv
+  when: venv_upgrade.changed and cloning_funkwhale.changed
+  register: venv_req
 
 - name: "Install pyopenssl to virtualenv"
   pip:
@@ -61,6 +65,7 @@
     virtualenv: /srv/funkwhale/virtualenv
     virtualenv_command: /usr/bin/python3 -m venv
     extra_args: --upgrade pip
+  when: cloning_funkwhale.changed and venv_upgrade.changed and venv_req.changed
 
 # TODO postgres and redis must be on the same host
 - name: "Configure beat systemd service"
@@ -136,6 +141,6 @@
   assert:
     that:
       - not result_front.changed
-#      - not result_systemd.changed
+#####################################      - not result_systemd.changed OR GET to back-funkserver
     fail_msg: "'Fail' on {{inventory_hostname}} {{ ansible_eth0.ipv4.address }}"
     success_msg: "'Success' on {{inventory_hostname}} {{ ansible_eth0.ipv4.address }}"
