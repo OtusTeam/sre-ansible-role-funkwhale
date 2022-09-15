@@ -1,23 +1,33 @@
 ---
 - name: "Install repos epel, rpmfusion"
-  yum:
+  ansible.builtin.yum:
     name:
       - https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-      - https://download1.rpmfusion.org/free/el/rpmfusion-free-release-7.noarch.rpm
+      - https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-7.noarch.rpm
     state: present
+    validate_certs: false
+    disable_gpg_check: true
 
 - name: "Install the 'Development tools'"
-  yum:
+  ansible.builtin.yum:
     name:
       - "@Development tools"
-      - cmake,gtk2-devel
+      - cmake
+      - gtk2-devel
       - pkgconfig
     state: present
+
+- name: "Ensure postgresql is initialized"
+  ansible.builtin.stat:
+    path: /var/lib/pgsql/data/pg_hba.conf
+  register: postgres_data
 
 - name: "amazon-linux-extras add repo postgresql{{ FUNKWHALE_DB_VER }}"
   shell: "amazon-linux-extras install -y postgresql{{ FUNKWHALE_DB_VER }}"
   args:
     executable: /bin/bash
+  register: repo_pgsql_add
+  when: not postgres_data.stat.exists
 
 - name: "Install ENV.INFRA for Funkwhale"
   package:
@@ -29,6 +39,7 @@
       - nginx
     state: present
     update_cache: true
+  when: not postgres_data.stat.exists and repo_pgsql_add.changed
 
 - name: "Install dependeies packages for Funkwhale"
   package:
@@ -48,53 +59,18 @@
     name: psycopg2
     executable: pip3
 
-- name: "Find out if PostgreSQL is initialized"
-  ansible.builtin.stat:
-    path: /var/lib/pgsql/data/pg_hba.conf
-  register: postgres_data
-
 - name: "Initialize PostgreSQL"
   shell: "postgresql-setup initdb"
   when: not postgres_data.stat.exists
 
-#- name: "Start SystemD unit postgresql {{ FUNKWHALE_DB_VER }}"
-#  ansible.builtin.systemd:
-#    name: postgresql
-#    state: started
-#    enabled: true
-#  register: postgres_started
-
-#- name: "Revoke access from local user postgres on database all"
-#  community.postgresql.postgresql_pg_hba:
-#    dest: /var/lib/pgsql/data/pg_hba.conf
-#    contype: local
-#    users: postgres
-#    databases: all
-#    method: peer
-#    state: absent
-#  register: postgres_hba01
-#  when: postgres_started.changed
-
-- debug:
-    var: postgres_data
-
-- name: "Revoke access from local user all on database all"
-  community.postgresql.postgresql_pg_hba:
-    dest: /var/lib/pgsql/data/pg_hba.conf
-    contype: host
-    users: all
-    databases: all
-    address: "{{ item }}"
-    method: md5
+- name: "Ensure of string 'local all	postgres	trust'"
+  lineinfile:
+    name: /var/lib/pgsql/data/pg_hba.conf
+    line: "local	all	postgres	trust"
     state: absent
-  loop:
-    - "127.0.0.1/32"
-    - "::1/128"
-  register: postgres_hba01
-#  when: postgres_started.changed
-
-- debug:
-    var: postgres_hba01
+  check_mode: true
+  changed_when: false
+  register: string_local_postgres_trust
 
 - name: "Create access from local user postgres on database all"
   community.postgresql.postgresql_pg_hba:
@@ -103,9 +79,18 @@
     users: postgres
     databases: all
     method: trust
-    create: true
-  register: postgres_hba02
-#  when: postgres_started.changed
+    state: present
+  register: postgres_hba01
+  when: not string_local_postgres_trust.found
+
+- name: "Ensure of string 'host	all	all	127.0.0.1/32	trust'"
+  lineinfile:
+    name: /var/lib/pgsql/data/pg_hba.conf
+    line: "host	all	all	127.0.0.1/32	trust"
+    state: absent
+  check_mode: true
+  changed_when: false
+  register: string_host4_trust
 
 - name: "Create access from host user funkwhale on database all"
   community.postgresql.postgresql_pg_hba:
@@ -115,12 +100,12 @@
     source: "{{ item }}"
     databases: all
     method: trust
-    create: true
+    state: present
   loop:
     - "127.0.0.1/32"
     - "::1/128"
-  register: postgres_hba03
-#  when: postgres_started.changed
+  register: postgres_hba02
+  when: not string_host4_trust.found
 
 - name: "Restart SystemD unit postgresql {{ FUNKWHALE_DB_VER }}"
   ansible.builtin.systemd:
@@ -128,7 +113,7 @@
     name: postgresql
     enabled: true
   register: postgres_restart
-  when: ( postgres_hba01.changed and postgres_hba02.changed and postgres_hba03.changed )
+  when: ( postgres_hba01.changed and postgres_hba02.changed )
 
 - name: "Create database for app.funkwhale"
   community.postgresql.postgresql_db:

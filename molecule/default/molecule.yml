@@ -10,6 +10,14 @@ driver:
 lint: |
   yamllint -c molecule/default/yamllint.yml -f colored .
 platforms:
+  - name: ansible-role-funkwhale-test-debian10
+    image: geerlingguy/docker-debian10-ansible
+    command: ${MOLECULE_COMMAND:-""}
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    privileged: true
+    pre_build_image: true
+    parallelize_platforms: true
   - name: ansible-role-funkwhale-test-amazon2
     image: geerlingguy/docker-amazonlinux2-ansible
     command: ${MOLECULE_COMMAND:-""}
@@ -18,14 +26,6 @@ platforms:
     privileged: true
     pre_build_image: true
     parallelize_platforms: true
-#  - name: ansible-role-funkwhale-test-debian10
-#    image: geerlingguy/docker-debian10-ansible
-#    command: ${MOLECULE_COMMAND:-""}
-#    volumes:
-#      - /sys/fs/cgroup:/sys/fs/cgroup:ro
-#    privileged: true
-#    pre_build_image: true
-#    parallelize_platforms: true
 provisioner:
   name: ansible
   log: true
@@ -44,5 +44,6 @@ scenario:
   name: default
 verifier:
   name: testinfra
+  directory: ${MOLECULE_PROJECT_DIRECTORY}/molecule/tests/
   lint:
     name: flake8

@@ -1,5 +1,4 @@
 ---
-
 - name: "Install dependeies packages for Funkwhale"
   package:
     name:
@@ -41,14 +40,10 @@
       - nginx
     state: present
 
-- name: "Find out if PostgreSQL is initialized"
+- name: "Find out pg_hba.conf"
   ansible.builtin.stat:
-    path: "/var/lib/postgresql/{{ FUNKWHALE_DB_VER }}/main/PG_VERSION"
+    path: "/etc/postgresql/{{ FUNKWHALE_DB_VER }}/main/pg_hba.conf"
   register: postgres_data
-
-- name: "Initialize PostgreSQL"
-  shell: "postgresql-setup initdb"
-  when: not postgres_data.stat.exists
 
 - name: "Start SystemD unit postgresql {{ FUNKWHALE_DB_VER }}"
   ansible.builtin.systemd:
@@ -58,31 +53,28 @@
   register: postgres_started
   when: postgres_data.stat.exists
 
-- name: "Revoke access from local user postgres on database all"
-  community.postgresql.postgresql_pg_hba:
-    dest: "/etc/postgresql/{{ FUNKWHALE_DB_VER }}/main/pg_hba.conf"
-    contype: local
-    users: postgres
-    databases: all
-    method: peer
+- name: "Ensure of string 'host	all	all	127.0.0.1/32	md5'"
+  lineinfile:
+    name: "/etc/postgresql/{{ FUNKWHALE_DB_VER }}/main/pg_hba.conf"
+    line: "host	all	all	127.0.0.1/32	md5"
     state: absent
-  register: postgres_hba01
-  when: postgres_data.stat.exists
+  check_mode: true
+  changed_when: false
+  register: string_host4_md5
 
-- name: "Revoke access from local user all on database all"
-  community.postgresql.postgresql_pg_hba:
-    dest: "/etc/postgresql/{{ FUNKWHALE_DB_VER }}/main/pg_hba.conf"
-    contype: host
-    users: all
-    databases: all
-    address: "{{ item }}"
-    method: md5
-    state: absent
-  loop:
-    - "127.0.0.1/32"
-    - "::1/128"
-  register: postgres_hba02
-  when: postgres_data.stat.exists
+- debug:
+    var: string_host4_md5
+
+- debug:
+    msg: "Yes, line string_host4_md5 exists."
+  when: string_host4_md5.found
+
+- debug:
+    msg: "Line string_host4_md5 does NOT exist."
+  when: not string_host4_md5.found
+
+- debug:
+    var: postgres_hba01
 
 - name: "Create access from local user postgres on database all"
   community.postgresql.postgresql_pg_hba:
@@ -91,9 +83,18 @@
     users: postgres
     databases: all
     method: trust
-    create: true
-  register: postgres_hba03
+    state: present
+  register: postgres_hba02
   when: postgres_data.stat.exists
+
+- name: "Ensure of string 'host	all	all	127.0.0.1/32	trust'"
+  lineinfile:
+    name: "/etc/postgresql/{{ FUNKWHALE_DB_VER }}/main/pg_hba.conf"
+    line: "host	all	all	127.0.0.1/32	trust"
+    state: absent
+  check_mode: true
+  changed_when: false
+  register: string_host4_trust
 
 - name: "Create access from host user funkwhale on database all"
   community.postgresql.postgresql_pg_hba:
@@ -103,20 +104,28 @@
     source: "{{ item }}"
     databases: all
     method: trust
-    create: true
+    state: present
   loop:
     - "127.0.0.1/32"
     - "::1/128"
-  register: postgres_hba04
-  when: postgres_data.stat.exists
+  register: postgres_hba03
+  when: not string_host4_trust.found
 
-- name: "Restart SystemD unit postgresql{{ FUNKWHALE_DB_VER }}"
+- debug:
+    msg: "Yes, line string_host4_md5 exists."
+  when: string_host4_trust.found
+
+- debug:
+    msg: "Line string_host4_md5 does NOT exist."
+  when: not string_host4_trust.found
+
+- name: "Restart SystemD unit postgresql {{ FUNKWHALE_DB_VER }}"
   ansible.builtin.systemd:
-    name: "postgresql@{{ FUNKWHALE_DB_VER }}-main"
     state: restarted
+    name: "postgresql@{{ FUNKWHALE_DB_VER }}-main"
     enabled: true
   register: postgres_restart
-  when: postgres_hba01 and postgres_hba02 and postgres_hba03 and postgres_hba04
+  when: ( postgres_hba02.changed and postgres_hba03.changed )
 
 - name: "Create database for app.funkwhale"
   community.postgresql.postgresql_db:

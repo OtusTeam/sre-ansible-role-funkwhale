@@ -29,6 +29,9 @@
     version: master
   register: cloning_funkwhale
 
+- debug:
+    var: cloning_funkwhale
+
 - name: "Add the user"
   user:
     name: funkwhale
@@ -109,7 +112,6 @@
     app_path: "/srv/funkwhale/api"
     pythonpath: "/usr/bin/python3"
     virtualenv: "/srv/funkwhale/virtualenv"
-#  tags: molecule-notest
   notify:
     - nginx systemd
 
@@ -124,8 +126,7 @@
     - redis.service
     - nginx.service
   register: result_systemd
-#- debug:
-#    var: result_systemd
+
 - name: "Check for proper.front.response"
   uri:
     url: http://localhost/
@@ -137,10 +138,12 @@
   retries: 3
   delay: 1
 
+- debug:
+    var: result_front
+
 - name: "Check result proper Front response"
   assert:
     that:
       - not result_front.changed
-#####################################      - not result_systemd.changed OR GET to back-funkserver
     fail_msg: "'Fail' on {{inventory_hostname}} {{ ansible_eth0.ipv4.address }}"
     success_msg: "'Success' on {{inventory_hostname}} {{ ansible_eth0.ipv4.address }}"
