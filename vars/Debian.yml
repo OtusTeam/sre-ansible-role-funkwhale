@@ -1,0 +1,2 @@
+---
+FUNKWHALE_NGINX_SERVER_CONF: "/etc/nginx/sites-enabled/"

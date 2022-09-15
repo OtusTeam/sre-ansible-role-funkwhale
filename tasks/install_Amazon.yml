@@ -1,0 +1,153 @@
+---
+- name: "Install repos epel, rpmfusion"
+  ansible.builtin.yum:
+    name:
+      - https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+      - https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-7.noarch.rpm
+    state: present
+    validate_certs: false
+    disable_gpg_check: true
+
+- name: "Install the 'Development tools'"
+  ansible.builtin.yum:
+    name:
+      - "@Development tools"
+      - cmake
+      - gtk2-devel
+      - pkgconfig
+    state: present
+
+- name: "Ensure postgresql is initialized"
+  ansible.builtin.stat:
+    path: /var/lib/pgsql/data/pg_hba.conf
+  register: postgres_data
+
+- name: "amazon-linux-extras add repo postgresql{{ FUNKWHALE_DB_VER }}"
+  shell: "amazon-linux-extras install -y postgresql{{ FUNKWHALE_DB_VER }}"
+  args:
+    executable: /bin/bash
+  register: repo_pgsql_add
+  when: not postgres_data.stat.exists
+
+- name: "Install ENV.INFRA for Funkwhale"
+  package:
+    name:
+      - postgresql-server
+      - postgresql-devel
+      - postgresql-contrib
+      - redis
+      - nginx
+    state: present
+    update_cache: true
+  when: not postgres_data.stat.exists and repo_pgsql_add.changed
+
+- name: "Install dependeies packages for Funkwhale"
+  package:
+    name:
+      - python3-devel
+      - openldap-devel
+      - https://rpmfind.net/linux/centos/7.9.2009/os/x86_64/Packages/libva-1.8.3-1.el7.x86_64.rpm
+      - ffmpeg
+      - ffmpeg-devel
+      - libjpeg-turbo-devel
+      - file-devel
+      - libpqxx-devel
+    state: present
+
+- name: "Install pip: psycopg2"
+  ansible.builtin.pip:
+    name: psycopg2
+    executable: pip3
+
+- name: "Initialize PostgreSQL"
+  shell: "postgresql-setup initdb"
+  when: not postgres_data.stat.exists
+
+- name: "Ensure of string 'local all	postgres	trust'"
+  lineinfile:
+    name: /var/lib/pgsql/data/pg_hba.conf
+    line: "local	all	postgres	trust"
+    state: absent
+  check_mode: true
+  changed_when: false
+  register: string_local_postgres_trust
+
+- name: "Create access from local user postgres on database all"
+  community.postgresql.postgresql_pg_hba:
+    dest: /var/lib/pgsql/data/pg_hba.conf
+    contype: local
+    users: postgres
+    databases: all
+    method: trust
+    state: present
+  register: postgres_hba01
+  when: not string_local_postgres_trust.found
+
+- name: "Ensure of string 'host	all	all	127.0.0.1/32	trust'"
+  lineinfile:
+    name: /var/lib/pgsql/data/pg_hba.conf
+    line: "host	all	all	127.0.0.1/32	trust"
+    state: absent
+  check_mode: true
+  changed_when: false
+  register: string_host4_trust
+
+- name: "Create access from host user funkwhale on database all"
+  community.postgresql.postgresql_pg_hba:
+    dest: /var/lib/pgsql/data/pg_hba.conf
+    contype: host
+    users: all
+    source: "{{ item }}"
+    databases: all
+    method: trust
+    state: present
+  loop:
+    - "127.0.0.1/32"
+    - "::1/128"
+  register: postgres_hba02
+  when: not string_host4_trust.found
+
+- name: "Restart SystemD unit postgresql {{ FUNKWHALE_DB_VER }}"
+  ansible.builtin.systemd:
+    state: restarted
+    name: postgresql
+    enabled: true
+  register: postgres_restart
+  when: ( postgres_hba01.changed and postgres_hba02.changed )
+
+- name: "Create database for app.funkwhale"
+  community.postgresql.postgresql_db:
+    name: "{{ item }}"
+    state: present
+    encoding: UTF-8
+    template: template0
+  loop:
+    - "{{ funkwhale_db_user }}"
+    - "{{ funkwhale_db }}"
+  when: postgres_restart.changed
+
+- name: "Create {{ funkwhale_db_user }} user"
+  community.postgresql.postgresql_user:
+    state: present
+    name: "{{ funkwhale_db_user }}"
+    password: "password"
+    role_attr_flags: SUPERUSER
+  when: postgres_restart.changed
+
+- name: "Grant db {{ funkwhale_db_user }} access to {{ funkwhale_db }}"
+  community.postgresql.postgresql_privs:
+    type: database
+    database: "{{ item }}"
+    roles: "{{ funkwhale_db_user }}"
+    grant_option: true
+    privs: all
+  loop:
+    - "{{ funkwhale_db_user }}"
+    - "{{ funkwhale_db }}"
+  when: postgres_restart.changed
+
+- name: "Configure front reverse-proxy.nginx"
+  template:
+    src: funkwhale.conf.j2
+    dest: "{{ FUNKWHALE_NGINX_SERVER_CONF }}funkwhale.conf"
+  tags: molecule-notest

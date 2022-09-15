@@ -7,16 +7,31 @@ A brief description of the role goes here.
 
 Requirements
 ------------
+Recommend by ansible host to use:
+- Molecule ver. 3+ (syntax of files)
+- Ansible-galaxy collection:
+  - community.docker
 
-Any pre-requisites that may not be covered by Ansible itself or the role should be mentioned here. For instance, if the role uses the EC2 module, it may be a good idea to mention in this section that the boto package is required.
+Recommend by ansible aims by OS to use:
+- Python ver. 3.7+ (python modules)
 
 Role Variables
 --------------
 
-| Name              | Default Value       | Description          |
-|-------------------|---------------------|----------------------|
-| `` | `` |  |
-
+| Name              | Default Value                                         | Description          |
+|-------------------|-------------------------------------------------------|----------------------|
+| `funkwhale_secret` | `X06DUinipK6MNRcH4y7JnT5QOub5wwOxy72aPLMRkEq54dVgYRUEEcvlmrhu` |  |
+| `FUNKWHALE_PROTOCOL` | `http`                                                 |  |
+| `funkwhale_domain` | `yourdomain.funkwhale`                                |  |
+| `funkwhale_db` | `funkwhale_database`                                  |  |
+| `funkwhale_db_user` | `funkwhale`                                           |  |
+| `funkwhale_db_password` | `password`                                            |  |
+| `FUNKWHALE_POSTGRES_VERSION` | `10`                                                  |  |
+| `FUNKWHALE_FRONTEND_PATH` | `/srv/funkwhale/front/dist`                           |  |
+| `FUNKWHALE_MEDIA_ROOT` | `/srv/funkwhale/data/media`                           |  |
+| `FUNKWHALE_MUSIC_DIRECTORY_PATH` | `/srv/funkwhale/data/music`                           |  |
+| `FUNKWHALE_MUSIC_DIRECTORY_SERVE_PATH` | `/srv/funkwhale/data/music`                           |  |
+| `FUNKWHALE_NGINX_MAX_BODY_SIZE` | `100M`                                                |  |
 
 Dependencies
 ------------
@@ -26,9 +41,11 @@ A list of other roles hosted on Galaxy should go here, plus any details in regar
 Example Playbook
 ----------------
 
-    - hosts: all
+    - hosts: all 
+      gather_facts: true
+      become: yes
       roles:
-         - kevit.ansible-role-funkwhale
+      - { role: ansible-role-funkwhale }
 
 License
 -------

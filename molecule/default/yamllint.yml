@@ -1,3 +1,4 @@
+---
 extends: default
 
 rules:
@@ -8,6 +9,6 @@ rules:
     max-spaces-inside: 1
     level: error
   comments-indentation: disable
-  document-start: disable
+  document-start: enable
   line-length: disable
-  truthy: disable
+  truthy: enable

@@ -1,6 +1,15 @@
+---
 # Generate one using `openssl rand -base64 45`, for example
 funkwhale_secret: X06DUinipK6MNRcH4y7JnT5QOub5wwOxy72aPLMRkEq54dVgYRUEEcvlmrhu
+FUNKWHALE_PROTOCOL: http
 funkwhale_domain: yourdomain.funkwhale
 funkwhale_db: funkwhale_database
 funkwhale_db_user: funkwhale
 funkwhale_db_password: password
+FUNKWHALE_DB_REPO: http://apt.postgresql.org/pub/repos/apt
+FUNKWHALE_DB_VER: 10
+FUNKWHALE_FRONTEND_PATH: /srv/funkwhale/front/dist
+FUNKWHALE_MEDIA_ROOT: /srv/funkwhale/data/media
+FUNKWHALE_MUSIC_DIRECTORY_PATH: /srv/funkwhale/data/music
+FUNKWHALE_MUSIC_DIRECTORY_SERVE_PATH: /srv/funkwhale/data/music
+FUNKWHALE_NGINX_MAX_BODY_SIZE: 100M

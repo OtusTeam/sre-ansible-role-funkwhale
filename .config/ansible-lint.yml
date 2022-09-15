@@ -1,0 +1,4 @@
+---
+# .config/ansible-lint.yml
+# warn_list:  # or 'skip_list' to silence them completely
+#  - internal-error  # Unexpected internal error.
