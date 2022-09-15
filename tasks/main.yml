@@ -2,8 +2,19 @@
 - name: "Validate configuration"
   assert:
     that:
+      - funkwhale_secret is defined
+      - FUNKWHALE_PROTOCOL is defined
       - funkwhale_domain is defined
-      - FUNKWHALE_DB_VER
+      - funkwhale_db is defined
+      - funkwhale_db_user is defined
+      - funkwhale_db_password is defined
+      - FUNKWHALE_DB_REPO is defined
+      - FUNKWHALE_DB_VER is defined
+      - FUNKWHALE_FRONTEND_PATH is defined
+      - FUNKWHALE_MEDIA_ROOT is defined
+      - FUNKWHALE_MUSIC_DIRECTORY_PATH is defined
+      - FUNKWHALE_MUSIC_DIRECTORY_SERVE_PATH is defined
+      - FUNKWHALE_NGINX_MAX_BODY_SIZE is defined
 
 - name: "Install pre packages"
   package:
