@@ -1,6 +1,43 @@
-# Generate one using `openssl rand -base64 45`, for example
+---
+
+service_name: "funkwhale"
+base_directory: "/srv"
+
 funkwhale_secret: X06DUinipK6MNRcH4y7JnT5QOub5wwOxy72aPLMRkEq54dVgYRUEEcvlmrhu
-funkwhale_domain: yourdomain.funkwhale
+funkwhale_domain: 2327.ru
 funkwhale_db: funkwhale_database
 funkwhale_db_user: funkwhale
 funkwhale_db_password: password
+
+packages:
+  - curl
+  - git
+  - python3-pip
+  - unzip
+
+debian_packages:
+  - ffmpeg
+  - libldap2-dev
+  - libsasl2-dev
+  - build-essential
+  - libjpeg-dev
+  - libmagic-dev
+  - libpq-dev
+  - postgresql-client
+  - python3-dev
+  - python3-setuptools
+  - python3-venv
+
+rhel_packages:
+  - ca-certificates
+  - cyrus-sasl
+  - cyrus-sasl-ldap
+  - libjpeg-turbo-devel
+  - libldb
+  - libgsasl-devel
+  - openldap-devel
+  - cyrus-sasl-ldap
+  - postgresql
+  - python3-devel
+  - python3-setuptools
+  - python3-virtualenv

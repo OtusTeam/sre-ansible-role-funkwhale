@@ -1,0 +1,37 @@
+---
+
+- name: upgrade packages
+  yum:
+    name: '*'
+    state: latest
+  tags: molecule-notest
+
+- name: install specific packages for rhel 7
+  yum:
+    name: "{{ item }}"
+    state: latest
+    update_cache: yes
+  loop:
+    - python2-dnf
+    - python-setuptools
+  when: ansible_distribution_major_version == "7"
+
+- name: install specific packages for rhel 8
+  yum:
+    name: "{{ item }}"
+    state: latest
+    update_cache: yes
+  loop:
+    - python3-dnf
+    - python3-setuptools
+  when: ansible_distribution_major_version == "8"
+
+- name: install packages
+  yum:
+    name: "{{ item }}"
+    state: latest
+    disable_gpg_check: true
+    update_cache: yes
+  loop:
+    - "https://download1.rpmfusion.org/free/el/rpmfusion-free-release-{{ ansible_distribution_major_version }}.noarch.rpm"
+    - "{{ rhel_packages }}"

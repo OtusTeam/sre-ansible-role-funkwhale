@@ -1,0 +1,48 @@
+---
+
+- name: validate configuration
+  assert:
+    that:
+      - funkwhale_domain is defined
+      - service_name is defined
+      - base_directory is defined
+      - funkwhale_secret is defined
+      - funkwhale_domain is defined
+      - funkwhale_db is defined
+      - funkwhale_db_user is defined
+      - funkwhale_db_password is defined
+
+- name: Create necessary directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0750"
+  loop:
+    - "{{ base_directory }}"
+
+- name: install packages
+  package:
+    name: "{{ item }}"
+    state: latest
+    update_cache: yes
+  loop: "{{ packages }}"
+
+- name: check out master branch
+  git:
+    repo: 'https://dev.funkwhale.audio/funkwhale/funkwhale.git'
+    dest: "{{ base_directory }}/{{ service_name }}"
+    version: develop
+
+- name: Add the user
+  user:
+    name: funkwhale
+    shell: /usr/bin/nologin
+    home: "{{ base_directory }}/{{ service_name }}"
+
+- name: Create config directory
+  file:
+    path: "{{ base_directory }}/{{ service_name }}/config"
+    owner: funkwhale
+    group: funkwhale
+    state: directory
+    mode: "0750"
