@@ -2,13 +2,21 @@ dependency:
   name: galaxy
 driver:
   name: docker
-lint:
-  name: yamllint
-  options:
-    config-file: molecule/default/yamllint.yml
+lint: |
+  set -e
+  yamllint .
+  ansible-lint
+  flake8
 platforms:
-  - name: ansible-role-funkwhale-test
-    image: "geerlingguy/docker-debian9-ansible"
+  - name: ansible-role-funkwhale-debian
+    image: "geerlingguy/docker-debian10-ansible"
+    command: ${MOLECULE_COMMAND:-""}
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    privileged: true
+    pre_build_image: true
+  - name: ansible-role-funkwhale-redhat
+    image: "geerlingguy/docker-rockylinux8-ansible"
     command: ${MOLECULE_COMMAND:-""}
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -31,5 +39,3 @@ scenario:
   name: default
 verifier:
   name: testinfra
-  lint:
-    name: flake8
