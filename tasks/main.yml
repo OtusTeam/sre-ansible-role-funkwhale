@@ -1,112 +1,91 @@
 ---
-- name: validate configuration
-  assert:
+- name: Validate configuration
+  ansible.builtin.assert:
     that:
       - funkwhale_domain is defined
+      - funkwhale_secret is defined
+      - funkwhale_domain is defined
+      - funkwhale_db is defined
+      - funkwhale_db_user is defined
+      - funkwhale_db_password is defined
 
-- name: install packages
-  apt:
-    name: "{{ item }}"
-    state: present
-    update_cache: yes
-  loop:
-    - git
+# Setup/install tasks.
+- include_tasks: setup-RedHat.yml
+  when: ansible_os_family == 'RedHat' or ansible_os_family == 'Rocky' or ansible_os_family == 'AlmaLinux'
 
-- name: check out master branch
-  git:
+- include_tasks: setup-Debian.yml
+  when: ansible_os_family == 'Debian' and ansible_distribution == 'Debian'
+
+- name: Check out develop branch
+  ansible.builtin.git:
     repo: 'https://dev.funkwhale.audio/funkwhale/funkwhale'
     dest: /srv/funkwhale
-    version: master
+    version: develop
 
 - name: Add the user
-  user:
+  ansible.builtin.user:
     name: funkwhale
     shell: /usr/bin/nologin
     home: /srv/funkwhale
     #    create_home: true
 
-- name: install packages
-  apt:
-    name: "{{ item }}"
-    state: present
-    update_cache: yes
-  loop:
-    - curl
-    - python3-pip
-    - python3-venv
-    - git
-    - unzip
-    - libldap2-dev
-    - libsasl2-dev
-    - build-essential
-    - ffmpeg
-    - libjpeg-dev
-    - libmagic-dev
-    - libpq-dev
-    - postgresql-client
-    - python3-dev
-
-
 - name: Install wheel to virtualenv
-  pip:
+  ansible.builtin.pip:
     name: wheel
     virtualenv: /srv/funkwhale/virtualenv
     virtualenv_command: /usr/bin/python3 -m venv
 
 - name: Upgrade pip to the last version
-  pip:
+  ansible.builtin.pip:
     name: pip
-    virtualenv: /srv/funkwhale/virtualenv
-    virtualenv_command: /usr/bin/python3 -m venv
-
-- name: Install requirements
-  pip:
-    requirements: /srv/funkwhale/api/requirements.txt
     virtualenv: /srv/funkwhale/virtualenv
     virtualenv_command: /usr/bin/python3 -m venv
 
 
 # TODO postgres and redis must be on the same host
 - name: Configure beat systemd service
-  template:
+  ansible.builtin.template:
     src: funkwhale-beat.service.j2
     dest: "/etc/systemd/system/funkwhale-beat.service"
+    mode: '0644'
 
 
 - name: Configure server systemd service
-  template:
+  ansible.builtin.template:
     src: funkwhale-server.service.j2
     dest: "/etc/systemd/system/funkwhale-server.service"
-
+    mode: '0644'
 
 - name: Configure worker systemd service
-  template:
+  ansible.builtin.template:
     src: funkwhale-worker.service.j2
     dest: "/etc/systemd/system/funkwhale-worker.service"
-
+    mode: '0644'
 
 - name: Configure systemd target
-  template:
+  ansible.builtin.template:
     src: funkwhale.target.j2
     dest: "/etc/systemd/system/funkwhale.target"
+    mode: '0644'
 
 - name: Create config directory
-  file:
+  ansible.builtin.file:
     path: /srv/funkwhale/config
     owner: funkwhale
     group: root
     state: directory
+    mode: '0755'
 
 - name: Configure service
-  template:
+  ansible.builtin.template:
     src: env.j2
     dest: "/srv/funkwhale/config/.env"
     owner: funkwhale
     group: root
-    mode: 0600
+    mode: '0600'
 
 - name: Run an initial migration
-  django_manage:
+  community.general.django_manage:
     command: migrate
     app_path: "/srv/funkwhale/api"
     pythonpath: "/usr/bin/python3"
@@ -114,7 +93,23 @@
   tags: molecule-notest
 
 - name: Configure nginx
-  template:
+  ansible.builtin.template:
     src: funkwhale.conf.j2
-    dest: "/etc/nginx/sites-enabled/funkwhale.conf"
+    dest: "/etc/nginx/conf.d/funkwhale.conf"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Start nginx
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true
+  tags: molecule-notest
+
+- name: Start redis
+  ansible.builtin.service:
+    name: redis
+    state: started
+    enabled: true
   tags: molecule-notest

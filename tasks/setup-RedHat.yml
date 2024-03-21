@@ -1,0 +1,23 @@
+- name: install packages
+  yum:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop:
+    - ca-certificates
+    - curl
+    - cyrus-sasl
+    - cyrus-sasl-ldap
+    - git
+    - libgsasl-devel
+    - libjpeg-turbo-devel
+    - libldb
+    - nginx
+    - openldap-devel
+    - postgresql
+    - python3-devel
+    - python3-pip
+    - python3-setuptools
+    - python3-virtualenv
+    - unzip
+    - redis 
