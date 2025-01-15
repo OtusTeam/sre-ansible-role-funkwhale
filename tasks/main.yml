@@ -61,7 +61,7 @@
     - python3-dev
   when: ansible_facts['os_family'] == "Debian"
 
-- name: Debian | install packages
+- name: Fedora | install packages
   dnf:
     name: "{{ item }}"
     state: present
