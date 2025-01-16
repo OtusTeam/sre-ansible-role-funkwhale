@@ -3,14 +3,28 @@
   assert:
     that:
       - funkwhale_domain is defined
+      - funkwhale_secret is defined
+      - funkwhale_db is defined
+      - funkwhale_db_user is defined
+      - funkwhale_db_password is defined
 
-- name: install packages
+- name: Debian | install packages
   apt:
     name: "{{ item }}"
     state: present
     update_cache: yes
   loop:
     - git
+  when: ansible_facts['os_family'] == "Debian"
+
+- name: Fedora | install packages
+  dnf:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop:
+    - git
+  when: ansible_facts['os_family'] == "RedHat"
 
 - name: check out master branch
   git:
@@ -25,7 +39,7 @@
     home: /srv/funkwhale
     #    create_home: true
 
-- name: install packages
+- name: Debian | install packages
   apt:
     name: "{{ item }}"
     state: present
@@ -45,7 +59,29 @@
     - libpq-dev
     - postgresql-client
     - python3-dev
+  when: ansible_facts['os_family'] == "Debian"
 
+- name: Fedora | install packages
+  dnf:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop:
+    - curl
+    - python3-pip
+    - python3-venv
+    - git
+    - unzip
+    - libldap2-dev
+    - libsasl2-dev
+    - build-essential
+    - ffmpeg
+    - libjpeg-dev
+    - libmagic-dev
+    - libpq-dev
+    - postgresql-client
+    - python3-dev
+  when: ansible_facts['os_family'] == "RedHat"
 
 - name: Install wheel to virtualenv
   pip:
